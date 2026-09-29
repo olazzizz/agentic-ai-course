@@ -1,0 +1,6 @@
+[project]
+name = "lab02"
+version = "0.1.0"
+description = "Lab 2: an agent loop from scratch"
+requires-python = ">=3.11"
+dependencies = ["openai", "python-dotenv"]

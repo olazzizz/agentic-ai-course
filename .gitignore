@@ -8,3 +8,7 @@ secrets.env
 __pycache__/
 results.csv
 artifacts/
+!.env.example
+logs/
+results*.csv
+lab-env/artifacts/

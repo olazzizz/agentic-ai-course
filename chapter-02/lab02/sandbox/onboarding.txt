@@ -1,0 +1,4 @@
+Onboarding checklist
+1. Create accounts
+2. Assign seats
+3. Schedule the kickoff call

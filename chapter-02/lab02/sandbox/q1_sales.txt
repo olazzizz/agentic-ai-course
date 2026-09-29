@@ -1,0 +1,4 @@
+Q1 revenue by month (EUR)
+Jan: 12450
+Feb: 13890
+Mar: 15210

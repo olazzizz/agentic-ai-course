@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang xml:lang>
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Chapter 2: From LLM to agent</title>
+  <style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+
+ul.task-list[class]{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+font-size: inherit;
+width: 0.8em;
+margin: 0 0.8em 0.2em -1.6em;
+vertical-align: middle;
+}
+.display.math{display: block; text-align: center; margin: 0.5rem auto;}
+
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+</style>
+  <style type="text/css">:root{--bg:#fff;--fg:#1d2330;--muted:#5b6475;--line:#d9dee7;--accent:#c1121f;--soft:#f5f7fa;--code:#f1f3f7;--box:#fff;--boxline:#8a94a6;--hi:#fde8ea;--ok:#e3f4e6;}
+@media (prefers-color-scheme:dark){:root{--bg:#14171d;--fg:#e6e9ef;--muted:#9aa4b5;--line:#2d3340;--accent:#ff6b76;--soft:#1b1f27;--code:#1f242d;--box:#1b1f27;--boxline:#6b7588;--hi:#3a1f24;--ok:#1f3324;}}
+body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;line-height:1.6;color:var(--fg);background:var(--bg);max-width:52rem;margin:2rem auto;padding:0 1.2rem;}
+h1{font-size:1.5rem;margin-top:2.6rem;padding-bottom:.3rem;border-bottom:2px solid var(--accent);}
+h1.title{font-size:2rem;border:none;margin-top:1rem}
+h2{font-size:1.2rem;margin-top:1.8rem}
+a{color:var(--accent)}
+table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.9rem;display:block;overflow-x:auto}
+th,td{border:1px solid var(--line);padding:.5rem .65rem;text-align:left;vertical-align:top}
+th{background:var(--soft)}
+tr:nth-child(even) td{background:var(--soft)}
+code{background:var(--code);padding:.1em .35em;border-radius:4px;font-size:.9em}
+pre{background:var(--code);padding:.8rem 1rem;border-radius:6px;overflow-x:auto}
+pre code{background:none;padding:0}
+details{background:var(--soft);border:1px solid var(--line);border-radius:6px;padding:.5rem 1rem;margin:1rem 0}
+summary{cursor:pointer;font-weight:600}
+nav#TOC{background:var(--soft);border:1px solid var(--line);border-radius:6px;padding:.3rem 1rem;margin:1.5rem 0}
+nav#TOC ul{padding-left:1.1rem}
+svg{width:100%;height:auto;margin:1rem 0}
+svg .box{fill:var(--box);stroke:var(--boxline);stroke-width:1.5}
+svg .box.hi{fill:var(--hi);stroke:var(--accent)}
+svg .box.ok{fill:var(--ok)}
+svg .loopbox{fill:none;stroke:var(--boxline);stroke-width:1.2;stroke-dasharray:6 4}
+svg .arrow{stroke:var(--boxline);stroke-width:1.8;fill:none}
+svg .arrowhead{fill:var(--boxline)}
+svg text{fill:var(--fg);text-anchor:middle;font-family:system-ui,sans-serif}
+svg .lbl{font-size:14px;font-weight:600}
+svg .small{font-size:11px;fill:var(--muted)}
+svg .loopbox+text{text-anchor:start}
+</style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Chapter 2: From LLM to agent</h1>
+</header>
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="#definitions-workflow-vs-agent" id="toc-definitions-workflow-vs-agent">2.1 Definitions: workflow vs
+agent</a></li>
+<li><a href="#the-agent-loop" id="toc-the-agent-loop">2.2 The agent
+loop</a></li>
+<li><a href="#core-building-blocks" id="toc-core-building-blocks">2.3
+Core building blocks</a></li>
+<li><a href="#patterns" id="toc-patterns">2.4 Patterns</a></li>
+<li><a href="#when-not-to-use-agents" id="toc-when-not-to-use-agents">2.5 When NOT to use agents</a></li>
+<li><a href="#check-yourself" id="toc-check-yourself">Check
+yourself</a></li>
+<li><a href="#reading" id="toc-reading">Reading</a></li>
+<li><a href="#lab-2-an-agent-loop-from-scratch" id="toc-lab-2-an-agent-loop-from-scratch">Lab 2: An agent loop from
+scratch</a></li>
+</ul>
+</nav>
+<p><strong>Time:</strong> reading ~2.5 h + Lab 2 ~3 h ·
+<strong>Cost:</strong> $0 to about $0.10 ·
+<strong>Prerequisite:</strong> Chapter 1, Lab 0
+<strong>Outcome:</strong> you can define an agent precisely, draw its
+loop, name its building blocks, pick the simplest pattern that fits a
+use case, and say <strong>no</strong> to an agent when it is the wrong
+tool.</p>
+<h1 id="definitions-workflow-vs-agent">2.1 Definitions: workflow vs
+agent</h1>
+<p>The one distinction to keep: <strong>who decides the next
+step?</strong></p>
+<ul>
+<li><strong>Workflow:</strong> your code decides. The model is called at
+fixed points to do a bounded job (extract, classify, draft).</li>
+<li><strong>Agent:</strong> the model decides, at runtime, which tool to
+call next and when to stop. Your code runs the loop and enforces
+limits.</li>
+</ul>
+<p>Autonomy is a spectrum, and each rung up trades predictability for
+flexibility:</p>
+<table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Level</th>
+<th>Who chooses the path</th>
+<th>Example</th>
+<th>Governance needed</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>0. Single call</td>
+<td>Nobody (one step)</td>
+<td>Summarise a ticket</td>
+<td>Output review</td>
+</tr>
+<tr class="even">
+<td>1. Chain</td>
+<td>Code</td>
+<td>Extract fields → validate → draft reply</td>
+<td>Tests per step</td>
+</tr>
+<tr class="odd">
+<td>2. Router</td>
+<td>Model picks a branch, code executes it</td>
+<td>Route a request to billing / tech / sales flow</td>
+<td>Routing evals</td>
+</tr>
+<tr class="even">
+<td>3. Tool loop</td>
+<td>Model picks tools and when to stop</td>
+<td>“Find why this deployment is failing”</td>
+<td>Step, cost and permission limits</td>
+</tr>
+<tr class="odd">
+<td>4. Long-running agent</td>
+<td>Model, with memory and triggers</td>
+<td>On-call assistant acting on alerts</td>
+<td>Approvals, audit, rollback</td>
+</tr>
+<tr class="even">
+<td>5. Multi-agent</td>
+<td>Several models delegating to each other</td>
+<td>Research team of specialists (Chapter 6)</td>
+<td>All of the above, plus inter-agent trust</td>
+</tr>
+</tbody>
+</table>
+<p>Most enterprise value today sits at levels 1 to 3. Level 3 is what
+people usually mean by “an agent”, and it is what you build in Lab
+2.</p>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th></th>
+<th>Workflow</th>
+<th>Agent</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Pros</strong></td>
+<td>Predictable; cheap; low latency; easy to test and audit; failures
+are local</td>
+<td>Handles open-ended tasks with an unknown number of steps; less code
+for messy problems; can recover from surprises</td>
+</tr>
+<tr class="even">
+<td><strong>Cons</strong></td>
+<td>Brittle: every branch must be foreseen; new cases need new code</td>
+<td>Non-deterministic; cost and latency multiply with the loop; hard to
+test; errors compound across steps</td>
+</tr>
+<tr class="odd">
+<td><strong>Best when</strong></td>
+<td>You can write the steps down</td>
+<td>You cannot know the steps in advance</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Architect’s lens:</strong> “agentic” is a design choice per
+step, not a product category. A good solution is usually a workflow with
+one or two agentic steps inside it.</p>
+<h1 id="the-agent-loop">2.2 The agent loop</h1>
+<svg viewBox="0 0 700 310" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Agent loop diagram: task goes to the model; if it emits a tool call the harness runs the tool, appends the result to the context and calls the model again; otherwise the model returns the final answer.">
+<defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="arrowhead"></path></marker></defs>
+<rect x="135" y="60" width="380" height="235" rx="10" class="loopbox"></rect>
+<text x="147" y="80" class="small">the loop (your harness owns
+it)</text>
+<rect x="10" y="115" width="100" height="50" rx="8" class="box"></rect><text x="60" y="145" class="lbl">User
+task</text>
+<line x1="110" y1="140" x2="165" y2="140" class="arrow" marker-end="url(#ar)"></line>
+<rect x="165" y="115" width="140" height="50" rx="8" class="box hi"></rect><text x="235" y="137" class="lbl">Model</text><text x="235" y="154" class="small">reason,
+pick action</text>
+<line x1="305" y1="140" x2="345" y2="140" class="arrow" marker-end="url(#ar)"></line>
+<polygon points="405,100 465,140 405,180 345,140" class="box"></polygon><text x="405" y="137" class="lbl">Tool</text><text x="405" y="152" class="lbl">call?</text>
+<line x1="465" y1="140" x2="540" y2="140" class="arrow" marker-end="url(#ar)"></line><text x="503" y="132" class="small">no</text>
+<rect x="540" y="115" width="150" height="50" rx="8" class="box ok"></rect><text x="615" y="145" class="lbl">Final
+answer</text>
+<line x1="405" y1="180" x2="405" y2="220" class="arrow" marker-end="url(#ar)"></line><text x="415" y="203" class="small">yes</text>
+<rect x="330" y="220" width="150" height="50" rx="8" class="box"></rect><text x="405" y="242" class="lbl">Run
+tool</text><text x="405" y="259" class="small">your code, with
+checks</text>
+<line x1="330" y1="245" x2="290" y2="245" class="arrow" marker-end="url(#ar)"></line>
+<rect x="150" y="220" width="140" height="50" rx="8" class="box"></rect><text x="220" y="242" class="lbl">Append
+result</text><text x="220" y="259" class="small">to the context</text>
+<line x1="220" y1="220" x2="220" y2="165" class="arrow" marker-end="url(#ar)"></line>
+</svg>
+<p><strong>Every step re-sends the whole growing context</strong>
+(Chapter 1.4): a loop’s cost grows faster than its length.</p>
+<p><strong>ReAct</strong> (Reason + Act, Yao et al., 2022) is the idea
+behind this loop: the model interleaves a thought, an action, and the
+observation of that action. Today’s APIs implement it natively: the
+model returns a structured <code>tool_calls</code> field instead of you
+parsing “Action:” text.</p>
+<p><strong>Stop conditions.</strong> A loop that only stops when the
+model feels done will eventually not stop. Every agent needs
+several:</p>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Stop condition</th>
+<th>Protects against</th>
+<th>Note</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Model returns no tool call</td>
+<td>Nothing: the happy path</td>
+<td>The only “success” stop</td>
+</tr>
+<tr class="even">
+<td>Max steps</td>
+<td>Runaway loops</td>
+<td>Hard limit, always on</td>
+</tr>
+<tr class="odd">
+<td>Token / cost budget</td>
+<td>Bill shock</td>
+<td>Per run, not per month</td>
+</tr>
+<tr class="even">
+<td>Repeated identical call</td>
+<td>Stuck loops</td>
+<td>Return an error message, do not just abort</td>
+</tr>
+<tr class="odd">
+<td>Wall-clock timeout</td>
+<td>Hung tools, slow models</td>
+<td>Essential for user-facing agents</td>
+</tr>
+<tr class="even">
+<td>Human approval refused</td>
+<td>Unsafe actions</td>
+<td>Chapter 12</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Two design rules from the loop:</strong></p>
+<ol type="1">
+<li><strong>Tool errors are observations, not exceptions.</strong> A
+failing tool returns text the model can act on (“file not found, call
+read_file(‘.’) to list files”). Crashing the loop wastes the run.</li>
+<li><strong>The model proposes, your code disposes.</strong> The model
+never executes anything. Validation, permissions and sandboxing live in
+the harness.</li>
+</ol>
+<h1 id="core-building-blocks">2.3 Core building blocks</h1>
+<p>An agent is <strong>a model plus a harness</strong>. The model is a
+swappable endpoint; the harness is the software you host, secure,
+observe and pay to operate.</p>
+<table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Block</th>
+<th>Job</th>
+<th>Key design decision</th>
+<th>Typical failure</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Model</strong></td>
+<td>Reasoning and tool selection</td>
+<td>Size vs reliability vs cost; tool-calling quality</td>
+<td>Small models pick wrong tools or emit bad arguments</td>
+</tr>
+<tr class="even">
+<td><strong>Instructions</strong></td>
+<td>Role, rules, output format</td>
+<td>Short and testable; stable text first (prompt caching)</td>
+<td>Contradictory or bloated prompts</td>
+</tr>
+<tr class="odd">
+<td><strong>Tools</strong></td>
+<td>The agent’s hands and eyes</td>
+<td>Few, well-scoped, well-described (Chapter 3)</td>
+<td>Vague descriptions, too many tools</td>
+</tr>
+<tr class="even">
+<td><strong>Memory / state</strong></td>
+<td>What the agent knows now and later</td>
+<td>What stays in context vs external store (Chapter 5)</td>
+<td>Context bloat; forgotten constraints</td>
+</tr>
+<tr class="odd">
+<td><strong>Guardrails</strong></td>
+<td>Limits on inputs, outputs and actions</td>
+<td>Where to block, where to ask a human (Chapter 12)</td>
+<td>Enforced in the prompt only, so bypassable</td>
+</tr>
+<tr class="even">
+<td><strong>Orchestration</strong></td>
+<td>Loop, control flow, retries, hand-offs</td>
+<td>Code you own vs a framework (Chapter 4)</td>
+<td>Hidden control flow nobody can debug</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Architect’s lens:</strong> the model is the part customers
+ask about; the harness is the part that decides whether the solution is
+secure and affordable. Put your design effort there.</p>
+<h1 id="patterns">2.4 Patterns</h1>
+<p>Start from the simplest pattern that could work, and move down the
+table only when a simpler one demonstrably fails.</p>
+<table>
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Pattern</th>
+<th>How it works</th>
+<th>Pros</th>
+<th>Cons / risks</th>
+<th>Cost and latency</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Prompt chaining</strong></td>
+<td>Fixed sequence; each call feeds the next, code gates between
+steps</td>
+<td>Simple, testable, debuggable</td>
+<td>Rigid; errors propagate down the chain</td>
+<td>Low, linear in steps</td>
+</tr>
+<tr class="even">
+<td><strong>Routing</strong></td>
+<td>A classifier call selects a specialised path</td>
+<td>Specialised prompts; cheap models for easy cases</td>
+<td>Misrouting is silent; needs its own evals</td>
+<td>Low; one extra call</td>
+</tr>
+<tr class="odd">
+<td><strong>Parallelization</strong></td>
+<td>Run independent calls at once (split work, or vote for
+confidence)</td>
+<td>Lower latency; voting improves reliability</td>
+<td>Total tokens rise; results must be merged</td>
+<td>Same latency as one call, higher tokens</td>
+</tr>
+<tr class="even">
+<td><strong>Orchestrator-workers</strong></td>
+<td>A model decomposes the task and delegates subtasks to workers</td>
+<td>Handles tasks whose subtasks are unknown upfront</td>
+<td>Orchestrator is a single point of failure; heavy context
+passing</td>
+<td>High</td>
+</tr>
+<tr class="odd">
+<td><strong>Evaluator-optimizer</strong></td>
+<td>One call produces, another critiques, repeat until good</td>
+<td>Quality gains where criteria are clear</td>
+<td>Loops without a good stop rule; the judge shares the generator’s
+blind spots</td>
+<td>High, multiplies per round</td>
+</tr>
+<tr class="even">
+<td><strong>Plan-and-execute</strong></td>
+<td>Plan first, then execute steps, replan on failure</td>
+<td>Fewer reasoning tokens per step; plan is reviewable by a human</td>
+<td>Stale plans; over-planning easy tasks</td>
+<td>Medium; front-loaded</td>
+</tr>
+<tr class="odd">
+<td><strong>Reflection</strong></td>
+<td>The agent critiques its own draft or trajectory and retries</td>
+<td>Catches some errors cheaply</td>
+<td>Can talk itself into a wrong answer; weak without an external check
+(test, tool result)</td>
+<td>Medium to high</td>
+</tr>
+</tbody>
+</table>
+<p>The first five are the workflow patterns from Anthropic’s
+<em>Building effective agents</em>; plan-and-execute and reflection are
+common agent-side patterns. <strong>Reflection with an external
+signal</strong> (a failing test, a validator) is far more reliable than
+reflection alone.</p>
+<p><strong>Choosing quickly:</strong></p>
+<ul>
+<li>Steps known and fixed → <strong>chain</strong></li>
+<li>Inputs fall into distinct categories → <strong>router</strong></li>
+<li>Independent sub-tasks → <strong>parallelization</strong></li>
+<li>Steps unknown but tools are few → <strong>tool loop</strong> (Lab
+2)</li>
+<li>Steps unknown and the task is large →
+<strong>orchestrator-workers</strong> or
+<strong>plan-and-execute</strong></li>
+<li>Output quality is checkable → add
+<strong>evaluator-optimizer</strong> or reflection on top</li>
+</ul>
+<h1 id="when-not-to-use-agents">2.5 When NOT to use agents</h1>
+<p>Run the five-question test. <strong>A “no” to any question pushes you
+back towards a workflow.</strong></p>
+<ol type="1">
+<li>Is the path genuinely unknown in advance? (If you can draw the
+flowchart, draw it in code.)</li>
+<li>Is a wrong intermediate step recoverable, or reversible?</li>
+<li>Is the value of a completed task greater than its cost,
+<strong>including the loop multiplier</strong>?</li>
+<li>Can success be checked automatically (evals, validators)? If not,
+you cannot improve it.</li>
+<li>Is the blast radius bounded by permissions (read-only, sandbox,
+small spend limit)?</li>
+</ol>
+<p>Red flags to raise with a customer:</p>
+<ul>
+<li><strong>Deterministic problem</strong> (calculation, lookup, format
+conversion): a normal program is cheaper and always right.</li>
+<li><strong>Hard latency or cost ceiling</strong>: a five-step loop is 5
+to 20 seconds and several times the tokens.</li>
+<li><strong>High-blast-radius actions</strong> (payments, production
+changes, customer-facing messages): keep a human approval gate or do not
+automate.</li>
+<li><strong>“We want an agent” with no task</strong>: ask what decision
+or workflow it replaces.</li>
+</ul>
+<p><strong>Customer-conversation phrasing:</strong> <em>“Let’s start
+with the simplest design that meets your goal, measure it, and add
+autonomy only where the measurements justify it.”</em></p>
+<h1 id="check-yourself">Check yourself</h1>
+<ol type="1">
+<li>Give one example of the same use case built as a workflow and as an
+agent, and say what breaks first in each.</li>
+<li>Your loop has no max-steps guard and a tool that sometimes returns
+an unhelpful error. What happens, and what does it cost?</li>
+<li>Why is “tell the model in the prompt not to delete files” not a
+guardrail?</li>
+<li>A customer wants an agent to convert 5,000 invoices from XML to
+JSON. Which level of autonomy do you recommend?</li>
+<li>Which patterns from 2.4 let a human review the work <em>before</em>
+any action is taken?</li>
+</ol>
+<details>
+<summary>
+Answers
+</summary>
+<ol type="1">
+<li>Example: refund requests. Workflow: classify → look up order → apply
+policy → draft reply; breaks first on unforeseen request types. Agent:
+model picks lookups and actions; breaks first on wrong tool choice,
+looping or cost.</li>
+<li>The model retries the failing call, each iteration re-sending the
+growing context, until something external stops it (rate limit, timeout,
+your budget). Cost grows roughly quadratically with steps.</li>
+<li>A prompt is a request the model may ignore or be talked out of. A
+guardrail is enforced in code (permissions, sandbox, approval gate) that
+the model cannot bypass.</li>
+<li>Level 0 or 1, and mostly no model at all: it is a deterministic
+transformation. Use a model only for the messy exceptions.</li>
+<li>Plan-and-execute (approve the plan), and any pattern with an
+approval gate before the action step (Chapter 12).</li>
+</ol>
+</details>
+<h1 id="reading">Reading</h1>
+<ul>
+<li>Anthropic, <em>Building effective agents</em> (the workflow vs agent
+distinction and the five workflow patterns)</li>
+<li>OpenAI, <em>A practical guide to building agents</em></li>
+<li>Yao et al., <em>ReAct: Synergizing Reasoning and Acting in Language
+Models</em> (2022)</li>
+<li>Google’s agent whitepapers (search for the current edition; the
+series is revised often)</li>
+</ul>
+<p>Read the first two before Lab 2; skim the others.</p>
+<h1 id="lab-2-an-agent-loop-from-scratch">Lab 2: An agent loop from
+scratch</h1>
+<p><strong>Time:</strong> ~3 h · <strong>Cost:</strong> about $0.01 to
+$0.10 with a hosted model; $0 local <strong>Goal:</strong> run, break
+and measure a ~100-line agent loop, then compare it with the same task
+as a fixed workflow.</p>
+<h2 id="which-model-to-use">Which model to use</h2>
+<p>This lab needs reliable <strong>tool calling</strong>. Recommended:
+the <strong>hosted</strong> profile with a cheap tool-capable model
+(from Lab 1:
+<code>bash ../lab-env/labenv.sh models --tools --structured --limit 15</code>).
+The whole task set is roughly 6 tasks × 2 to 4 steps × ~1.5k tokens, so
+a few cents.</p>
+<p>The <strong>local</strong> profile works too, but small CPU models
+are slow (you saw 60 to 180 s per prompt in Lab 1) and often mishandle
+tool calls; a tool loop multiplies that latency by the number of steps.
+If you use it, choose a tool-capable model (for example
+<code>qwen3:8b</code>) and expect to wait.</p>
+<h2 id="step-1-set-up">Step 1: Set up</h2>
+<p>Unzip this package into the same <code>~/agentic-labs</code> as
+before, then:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> ~/agentic-labs/lab02</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">cp</span> .env.example .env          <span class="co"># or copy lab01/.env and add the &quot;Agent guards&quot; block</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="ex">uv</span> sync</span></code></pre></div>
+<p>Fill in <code>HOSTED_*</code> (and <code>LOCAL_*</code> if you want
+the local run). <code>.env</code> is never committed.</p>
+<h2 id="step-2-read-the-code-first-15-min">Step 2: Read the code first
+(15 min)</h2>
+<p>Open <code>agent.py</code> and find, in order: the two
+<strong>tools</strong> and their JSON schemas; <code>execute()</code>
+(errors become text); <code>run_agent()</code> (the loop, with numbered
+guards); <code>grade()</code> (simple checks on the answer). Map each
+part to the diagram in 2.2.</p>
+<p>Note the security choices: the calculator parses arithmetic with
+<code>ast</code> instead of <code>eval()</code>, and
+<code>read_file</code> resolves the path and refuses anything outside
+<code>sandbox/</code>.</p>
+<h2 id="step-3-run-one-task-read-the-trace">Step 3: Run one task, read
+the trace</h2>
+<div class="sourceCode" id="cb2"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="ex">uv</span> run agent.py <span class="st">&quot;Read q1_sales.txt. What was total Q1 revenue and the average monthly revenue?&quot;</span></span></code></pre></div>
+<p>Every step prints as it happens and is also written to
+<code>logs/*.jsonl</code>. Identify: how many model calls, which tools,
+and where tokens went.</p>
+<h2 id="step-4-run-the-task-set">Step 4: Run the task set</h2>
+<div class="sourceCode" id="cb3"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="ex">uv</span> run agent.py <span class="at">--tasks</span> tasks.json</span></code></pre></div>
+<p>The six tasks in <code>tasks.json</code> are deliberately different:
+<strong>no tool needed</strong>, <strong>read then compute</strong>,
+<strong>two files</strong>, a <strong>missing file</strong>, and a
+<strong>sandbox escape attempt</strong>. You get a pass/fail per task,
+steps, tokens and cost, plus <code>results-hosted.csv</code>.</p>
+<h2 id="step-5-break-it-on-purpose-the-real-lesson">Step 5: Break it on
+purpose (the real lesson)</h2>
+<p>Change one thing at a time, rerun, and note what changed in steps,
+cost and pass rate:</p>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Experiment</th>
+<th>Change</th>
+<th>What to observe</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>A</td>
+<td><code>--max-steps 2</code></td>
+<td>Which tasks now fail, and with what stop reason</td>
+</tr>
+<tr class="even">
+<td>B</td>
+<td><code>--max-tokens 1500</code></td>
+<td>The budget guard firing; compare with A</td>
+</tr>
+<tr class="odd">
+<td>C</td>
+<td>In <code>TOOLS</code>, make the <code>read_file</code> description
+vague (“Reads stuff”)</td>
+<td>Wrong or missing tool calls</td>
+</tr>
+<tr class="even">
+<td>D</td>
+<td>In <code>SYSTEM</code>, delete the “never do arithmetic in your
+head” rule</td>
+<td>Does the model still use the calculator? Are answers still
+right?</td>
+</tr>
+<tr class="odd">
+<td>E</td>
+<td>Remove the repeated-call check in <code>execute()</code>; add a task
+the model cannot solve</td>
+<td>How it loops until <code>max_steps</code></td>
+</tr>
+<tr class="even">
+<td>F</td>
+<td><code>--profile local</code> (if configured)</td>
+<td>Steps, latency and pass rate vs hosted</td>
+</tr>
+</tbody>
+</table>
+<h2 id="step-6-the-same-task-as-a-workflow">Step 6: The same task as a
+workflow</h2>
+<div class="sourceCode" id="cb4"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="ex">uv</span> run workflow.py</span></code></pre></div>
+<p><code>workflow.py</code> solves the Q1-revenue task with
+<strong>one</strong> model call and code for everything else. Compare it
+with the agent’s run of <code>one-file-two-calcs</code>.</p>
+<h2 id="deliverable-a-one-page-report">Deliverable: a one-page
+report</h2>
+<p>Answer in your own words, with numbers from your runs:</p>
+<ol type="1">
+<li><strong>Cost and steps</strong> for workflow vs agent on the Q1
+task. What is the ratio?</li>
+<li>What did the agent do that the workflow <strong>could not</strong>
+(look at the <code>no-tool</code>, <code>missing-file</code> and
+<code>escape-sandbox</code> tasks)?</li>
+<li>What does the max-steps guard cost you (experiment A), and why do
+you still need it?</li>
+<li>Which single experiment (A to F) hurt most, and what design rule
+does it teach?</li>
+<li>Apply the five-question test from 2.5 to the Q1 task: agent or
+workflow? Defend it in three sentences.</li>
+</ol>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Symptom</th>
+<th>Likely cause</th>
+<th>Fix</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Model answers but never calls a tool</td>
+<td>Model or provider does not support tool calling</td>
+<td>Pick one with <code>labenv.sh models --tools</code>; check the
+provider’s model page</td>
+</tr>
+<tr class="even">
+<td>HTTP 400 mentioning <code>tool_calls</code> or
+<code>temperature</code></td>
+<td>Provider rejects a parameter</td>
+<td>Set <code>TEMPERATURE=</code> (empty) in <code>.env</code>; try
+another model</td>
+</tr>
+<tr class="odd">
+<td>Arguments are not valid JSON</td>
+<td>Small model</td>
+<td>The loop returns an error and the model may recover; if not, use a
+larger model</td>
+</tr>
+<tr class="even">
+<td>Local run takes minutes per step</td>
+<td>CPU inference</td>
+<td>Use hosted for this lab; keep local for the comparison in experiment
+F</td>
+</tr>
+<tr class="odd">
+<td><code>Profile &#39;hosted&#39; is not configured</code></td>
+<td>Empty <code>HOSTED_BASE_URL</code> or <code>HOSTED_MODEL</code></td>
+<td>Fill both in <code>.env</code></td>
+</tr>
+<tr class="even">
+<td>Task set passes on one run, fails on the next</td>
+<td>Non-determinism</td>
+<td>Run 3 times and record the pass rate; this is exactly what Chapter
+11 formalises</td>
+</tr>
+</tbody>
+</table>
+<h2 id="checkpoint">Checkpoint</h2>
+<p>Can you whiteboard, from memory, the difference between a workflow
+and an agent, list the stop conditions of a loop, and name three
+situations where you would refuse to build an agent? If yes, move to
+<strong>Chapter 3: Tool use and function calling</strong>, which extends
+this same <code>agent.py</code> with five real tools.</p>
+</body>
+</html>
