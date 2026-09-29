@@ -269,8 +269,8 @@ uv add openai pydantic python-dotenv
 <li>
 <p><code>HOSTED_*</code> → <strong>OpenRouter is recommended</strong> (one key, many models, pay-per-token, no GPU needed). Use the helper to pick a cheap model and get its prices:
   <code>bash
-  bash ../lab-env/labenv.sh models --tools --structured --limit 15   # cheapest first
-  bash ../lab-env/labenv.sh price &lt;model-id&gt;                          # prints HOSTED_MODEL / HOSTED_PRICE_IN / HOSTED_PRICE_OUT</code>
+  bash ../../lab-env/labenv.sh models --tools --structured --limit 15   # cheapest first
+  bash ../../lab-env/labenv.sh price &lt;model-id&gt;                          # prints HOSTED_MODEL / HOSTED_PRICE_IN / HOSTED_PRICE_OUT</code>
   Any other OpenAI-compatible provider works too (list in the file). Set a small credit limit on the key in the provider dashboard.</p>
 </li>
 <li>
