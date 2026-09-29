@@ -1,0 +1,10 @@
+# secrets — never commit these
+.env
+labenv.env
+secrets.env
+
+# generated / local-only
+.venv/
+__pycache__/
+results.csv
+artifacts/

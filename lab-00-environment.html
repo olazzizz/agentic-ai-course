@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab 0: Environment setup</title>
+<style>
+:root { color-scheme: light dark; }
+body {
+  font-family: -apple-system, "Segoe UI", Roboto, "Noto Sans", Helvetica, Arial, sans-serif;
+  max-width: 900px; margin: 2.5rem auto; padding: 0 1.5rem 4rem;
+  line-height: 1.6; font-size: 16px;
+}
+h1, h2, h3, h4 { line-height: 1.25; margin-top: 2.2em; }
+h1 { border-bottom: 2px solid #d8dee6; padding-bottom: .3em; }
+h2 { border-bottom: 1px solid #e3e8ee; padding-bottom: .25em; }
+code { font-family: "Liberation Mono", Consolas, monospace; font-size: .92em;
+  background: rgba(130,140,160,.15); padding: .1em .35em; border-radius: 4px; }
+pre { background: rgba(130,140,160,.12); padding: 1em; border-radius: 8px; overflow-x: auto; }
+pre code { background: none; padding: 0; }
+blockquote { border-left: 4px solid #8ea0b8; margin: 1em 0; padding: .1em 1.2em;
+  background: rgba(130,140,160,.08); border-radius: 0 6px 6px 0; }
+details { background: rgba(130,140,160,.08); border-radius: 6px; padding: .6em 1em; margin: .5em 0 1.5em; }
+summary { cursor: pointer; font-weight: 600; }
+hr { border: none; border-top: 1px solid #d8dee6; margin: 2.5em 0; }
+a { color: #2b6cb0; }
+table { border-collapse: collapse; width: 100%; margin: 1.2em 0; }
+th, td { border: 1px solid #d8dee6; padding: .5em .7em; text-align: left; vertical-align: top; }
+th { background: #27374d; color: #fff; }
+tr:nth-child(even) td { background: rgba(130,140,160,.08); }
+</style>
+</head>
+<body>
+<h1 id="lab-0-environment-setup">Lab 0: Environment setup</h1>
+<p><strong>Time:</strong> ~1 h · <strong>Cost:</strong> $0 · <strong>Used by:</strong> every later lab
+<strong>Outcome:</strong> a working workstation with a local model, a Python/Node toolchain, containers, and (optionally) a Kubernetes cluster, all behind one repo layout.</p>
+<hr />
+<h2 id="01-hardware-check">0.1 Hardware check</h2>
+<table>
+<thead>
+<tr>
+<th>Your machine</th>
+<th>What to run locally</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>≥ 16 GB RAM (or Apple Silicon ≥ 16 GB)</td>
+<td>7–8B model, 4-bit quantized (~5 GB)</td>
+</tr>
+<tr>
+<td>8–12 GB RAM</td>
+<td>3–4B model (<code>qwen3:4b</code>, <code>llama3.2:3b</code>)</td>
+</tr>
+<tr>
+<td>&lt; 8 GB RAM</td>
+<td>Skip local models; use a free hosted tier (see 0.5)</td>
+</tr>
+</tbody>
+</table>
+<p>No GPU required. Without one, generation is slower (expect a few tokens/s on CPU), which is fine for these labs.</p>
+<h2 id="02-core-tooling">0.2 Core tooling</h2>
+<pre><code class="language-bash"># Python package/project manager (fast, replaces pip+venv for our purposes)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Containers (Fedora/RHEL). On macOS: brew install podman
+sudo dnf install -y podman git
+
+# Node 20+ (needed for TypeScript MCP servers and MCP Inspector)
+# Fedora/RHEL:
+sudo dnf install -y nodejs npm
+# or use nvm: https://github.com/nvm-sh/nvm
+
+# Verify
+uv --version &amp;&amp; podman --version &amp;&amp; git --version &amp;&amp; node --version &amp;&amp; python3 --version
+</code></pre>
+<p>Python 3.11+ is needed. <code>uv</code> can install and manage it for you: <code>uv python install 3.12</code>.</p>
+<h2 id="03-local-model-runtime-ollama">0.3 Local model runtime (Ollama)</h2>
+<pre><code class="language-bash"># Linux/macOS installer (or download the app from ollama.com)
+curl -fsSL https://ollama.com/install.sh | sh
+
+# Pull one model that supports tool calling (needed from Chapter 3)
+ollama pull qwen3:8b        # or qwen3:4b / llama3.2:3b for smaller machines
+
+# Test interactively, then exit with /bye
+ollama run qwen3:8b &quot;Say hello in one sentence.&quot;
+
+# Test the OpenAI-compatible API (this is what all our labs use)
+curl -s http://localhost:11434/v1/models | head -c 300
+</code></pre>
+<blockquote>
+<p><strong>Note on "thinking" models:</strong> Qwen3 and other reasoning models emit hidden/visible "thinking" tokens. They improve answers but inflate token counts and latency. You'll observe this in Lab 1.</p>
+</blockquote>
+<p><strong>Red Hat-flavored alternative (do later, in Lab 15b):</strong> <a href="https://github.com/containers/ramalama">RamaLama</a> or Podman AI Lab serve models in containers with the same OpenAI-compatible API. For now Ollama is the simplest start.</p>
+<h2 id="04-repo-layout">0.4 Repo layout</h2>
+<pre><code class="language-bash">mkdir -p ~/agentic-labs &amp;&amp; cd ~/agentic-labs
+git init
+mkdir lab01 lab02 lab03
+printf &quot;.env\n.venv/\n__pycache__/\nresults.csv\n&quot; &gt; .gitignore
+</code></pre>
+<p><strong>Never commit <code>.env</code>.</strong> It holds API keys.</p>
+<h2 id="05-hosted-model-backup-free-tier-and-spend-controls">0.5 Hosted model backup (free tier) and spend controls</h2>
+<p>Pick <strong>one</strong> provider for comparisons. All expose an OpenAI-compatible endpoint:</p>
+<table>
+<thead>
+<tr>
+<th>Provider</th>
+<th>Base URL</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Google AI Studio (Gemini)</td>
+<td><code>https://generativelanguage.googleapis.com/v1beta/openai/</code></td>
+<td>Generous free tier, rate-limited</td>
+</tr>
+<tr>
+<td>Groq</td>
+<td><code>https://api.groq.com/openai/v1</code></td>
+<td>Free tier, very fast open-weight models</td>
+</tr>
+<tr>
+<td>OpenRouter</td>
+<td><code>https://openrouter.ai/api/v1</code></td>
+<td>Has <code>:free</code> models; good for trying many models</td>
+</tr>
+<tr>
+<td>GitHub Models</td>
+<td><code>https://models.github.ai/inference</code></td>
+<td>Free with a GitHub account, rate-limited</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>Free tiers, model names and limits change often. Check each provider's current docs.</p>
+</blockquote>
+<p><strong>If you ever add a paid key:</strong></p>
+<ol>
+<li>Create a <strong>separate API key per project</strong> (easy to revoke).</li>
+<li>Set a <strong>monthly spend limit / budget alert</strong> in the provider console <strong>before</strong> the first call.</li>
+<li>Use small/cheap models for labs; save the big models for capstone comparisons.</li>
+<li>Keep a <code>costs.md</code> log (date, lab, spend). Total target for the whole path: under ~$15.</li>
+</ol>
+<h2 id="06-kubernetes-openshift-access">0.6 Kubernetes / OpenShift access</h2>
+<blockquote>
+<p><strong>Superseded for cluster-based labs:</strong> if you use disposable OpenShift clusters (recommended for Labs 9, 14 and 15), use the <code>lab-env/</code> toolkit instead of the manual steps below: see <code>lab-env/README.md</code>. The <code>kind</code> and Developer Sandbox notes below remain a free fallback.</p>
+</blockquote>
+<p>Needed from Lab 9 onward. Do it now if you have time, otherwise defer.</p>
+<pre><code class="language-bash"># Local cluster with kind (needs podman or docker)
+# Install: https://kind.sigs.k8s.io/docs/user/quick-start/
+kind create cluster --name agentic
+kubectl cluster-info --context kind-agentic
+</code></pre>
+<p>For Podman as the kind provider: <code>KIND_EXPERIMENTAL_PROVIDER=podman kind create cluster</code> (rootless setups may need extra cgroup configuration; see kind docs).</p>
+<p><strong>Red Hat Developer Sandbox (free OpenShift):</strong> sign up at <a href="https://developers.redhat.com/developer-sandbox">https://developers.redhat.com/developer-sandbox</a> with a free Red Hat account. Note the resource limits and time-limited lifecycle; check current terms. Install <code>oc</code> from the console's "Command line tools" page.</p>
+<h2 id="07-verification-checklist">0.7 Verification checklist</h2>
+<p>Run each line; all should succeed.</p>
+<pre><code class="language-bash">uv --version
+python3 --version           # 3.11+
+node --version              # 20+
+podman run --rm quay.io/podman/hello    # container runtime works
+ollama list                 # shows your model
+curl -s http://localhost:11434/v1/models &gt;/dev/null &amp;&amp; echo &quot;LLM API OK&quot;
+git status                  # inside ~/agentic-labs
+</code></pre>
+<p>Optional: <code>kubectl get nodes</code> (kind) or <code>oc whoami</code> (Sandbox).</p>
+<h2 id="08-troubleshooting">0.8 Troubleshooting</h2>
+<table>
+<thead>
+<tr>
+<th>Symptom</th>
+<th>Fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Ollama model is very slow / machine swaps</td>
+<td>Use a smaller model (<code>qwen3:4b</code>, <code>llama3.2:3b</code>)</td>
+</tr>
+<tr>
+<td><code>connection refused</code> on port 11434</td>
+<td>Start the server: <code>ollama serve</code> (or launch the app)</td>
+</tr>
+<tr>
+<td>Podman rootless errors</td>
+<td>Check <code>podman info</code>; on RHEL/Fedora ensure <code>subuid/subgid</code> are set for your user</td>
+</tr>
+<tr>
+<td><code>uv</code> not found after install</td>
+<td>Restart shell or <code>source ~/.bashrc</code></td>
+</tr>
+<tr>
+<td>Corporate proxy blocks downloads</td>
+<td>Set <code>HTTPS_PROXY</code>; for local calls set <code>NO_PROXY=localhost,127.0.0.1</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Deliverable:</strong> paste the output of the verification checklist into the chat, and I'll confirm you're ready for Chapter 1.</p>
+</body>
+</html>

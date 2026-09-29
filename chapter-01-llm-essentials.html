@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chapter 1: LLM essentials for architects</title>
+<style>
+:root { color-scheme: light dark; }
+body {
+  font-family: -apple-system, "Segoe UI", Roboto, "Noto Sans", Helvetica, Arial, sans-serif;
+  max-width: 900px; margin: 2.5rem auto; padding: 0 1.5rem 4rem;
+  line-height: 1.6; font-size: 16px;
+}
+h1, h2, h3, h4 { line-height: 1.25; margin-top: 2.2em; }
+h1 { border-bottom: 2px solid #d8dee6; padding-bottom: .3em; }
+h2 { border-bottom: 1px solid #e3e8ee; padding-bottom: .25em; }
+code { font-family: "Liberation Mono", Consolas, monospace; font-size: .92em;
+  background: rgba(130,140,160,.15); padding: .1em .35em; border-radius: 4px; }
+pre { background: rgba(130,140,160,.12); padding: 1em; border-radius: 8px; overflow-x: auto; }
+pre code { background: none; padding: 0; }
+blockquote { border-left: 4px solid #8ea0b8; margin: 1em 0; padding: .1em 1.2em;
+  background: rgba(130,140,160,.08); border-radius: 0 6px 6px 0; }
+details { background: rgba(130,140,160,.08); border-radius: 6px; padding: .6em 1em; margin: .5em 0 1.5em; }
+summary { cursor: pointer; font-weight: 600; }
+hr { border: none; border-top: 1px solid #d8dee6; margin: 2.5em 0; }
+a { color: #2b6cb0; }
+table { border-collapse: collapse; width: 100%; margin: 1.2em 0; }
+th, td { border: 1px solid #d8dee6; padding: .5em .7em; text-align: left; vertical-align: top; }
+th { background: #27374d; color: #fff; }
+tr:nth-child(even) td { background: rgba(130,140,160,.08); }
+</style>
+</head>
+<body>
+<h1 id="chapter-1-llm-essentials-for-architects">Chapter 1: LLM essentials for architects</h1>
+<p><strong>Time:</strong> ~4–5 h (reading ~2 h, lab ~2–3 h) · <strong>Cost:</strong> $0 (local model + free tier) · <strong>Prereq:</strong> Lab 0 complete</p>
+<p><strong>By the end you can:</strong></p>
+<ul>
+<li>Explain why LLM behavior (tokens, context, sampling) drives design and cost decisions.</li>
+<li>Choose between prompting, RAG and fine-tuning with a defensible rationale.</li>
+<li>Estimate and compare cost, latency and reliability across models.</li>
+<li>Explain to a customer why agents cost far more than chatbots.</li>
+</ul>
+<hr />
+<h2 id="lesson-11-how-llms-behave">Lesson 1.1: How LLMs behave</h2>
+<h3 id="core-ideas">Core ideas</h3>
+<p><strong>Tokens.</strong> Models read and write <em>tokens</em> (sub-word chunks), not words. Rule of thumb for English: 1 token ≈ 4 characters ≈ ¾ of a word. Other languages, code and JSON are usually less efficient (more tokens per word), and this matters for cost and context budget.</p>
+<p><strong>Next-token prediction.</strong> An LLM produces text one token at a time, each chosen from a probability distribution conditioned on everything before it. There is no built-in fact database or "truth check": fluent output and correct output are different things.</p>
+<p><strong>Context window.</strong> The maximum tokens (input + output) the model can consider in one request. It is the model's <em>entire working memory</em>; anything not in the window doesn't exist for the model. Long windows are not free: cost and latency grow with length, and models can under-use information buried in the middle of very long contexts.</p>
+<p><strong>Sampling.</strong> <em>Temperature</em> controls randomness. Low values give more consistent output; high values give more variety. Even at temperature 0, output is <strong>not guaranteed identical</strong> across runs (batching, hardware and provider changes can alter results). Design for tolerance, don't assume determinism.</p>
+<p><strong>Hallucination.</strong> Confident but wrong or invented output. It is a property to <em>manage</em> (grounding via retrieval, citations, verification steps, constrained outputs, human review), not a bug that will vanish.</p>
+<p><strong>Prompt = program.</strong> System prompt, instructions, examples and retrieved data together are the "code" you ship. They need version control, tests and review like any other code.</p>
+<p><strong>Reasoning models</strong> spend extra "thinking" tokens before answering. They're better at multi-step problems but slower and costlier per answer, and you're billed for thinking tokens on most providers.</p>
+<h3 id="architects-lens">Architect's lens</h3>
+<ul>
+<li>Anything a model must know <strong>must be in the context</strong> (or reachable via a tool). This single fact motivates RAG, memory and MCP.</li>
+<li>Non-determinism means you need <strong>evaluation sets</strong>, not one-off manual testing (Chapter 11).</li>
+<li>Treat the prompt as a versioned artifact.</li>
+</ul>
+<h3 id="check-yourself">Check yourself</h3>
+<ol>
+<li>Why can't you rely on <code>temperature=0</code> for exactly reproducible output?</li>
+<li>A customer says "the model knows our policies, we trained it last year." What questions do you ask?</li>
+</ol>
+<hr />
+<h2 id="lesson-12-the-model-landscape-and-how-to-choose">Lesson 1.2: The model landscape and how to choose</h2>
+<h3 id="categories">Categories</h3>
+<table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Examples of what to expect</th>
+<th>Typical strengths</th>
+<th>Typical trade-offs</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Frontier closed (API)</strong></td>
+<td>Top models from Anthropic, OpenAI, Google</td>
+<td>Best quality, tool use, long context, managed</td>
+<td>Data leaves your boundary, per-token cost, vendor dependence</td>
+</tr>
+<tr>
+<td><strong>Open-weight large</strong></td>
+<td>Llama, Qwen, Mistral, DeepSeek, gpt-oss families</td>
+<td>Run anywhere, customizable, no per-token fee</td>
+<td>Need GPUs/ops, licence terms vary, may trail frontier</td>
+</tr>
+<tr>
+<td><strong>Small models (SLMs, 1–14B)</strong></td>
+<td>Granite, Qwen small sizes, Phi, Gemma</td>
+<td>Cheap, fast, edge/on-prem friendly, good for narrow tasks</td>
+<td>Weaker at complex reasoning and long tool chains</td>
+</tr>
+<tr>
+<td><strong>Reasoning-tuned</strong></td>
+<td>Available in all of the above</td>
+<td>Multi-step problem solving</td>
+<td>Latency and token cost</td>
+</tr>
+<tr>
+<td><strong>Multimodal</strong></td>
+<td>Text + image (+ audio/video)</td>
+<td>Documents, screenshots, charts</td>
+<td>Higher cost, varying quality</td>
+</tr>
+<tr>
+<td><strong>Embedding / reranker models</strong></td>
+<td>Small specialized models</td>
+<td>Power RAG search</td>
+<td>Separate component to host and evaluate</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>Names and rankings change quarterly. Check current leaderboards and vendor docs rather than memorizing a list.</p>
+</blockquote>
+<h3 id="selection-criteria-use-as-a-checklist-with-customers">Selection criteria (use as a checklist with customers)</h3>
+<ol>
+<li><strong>Task quality</strong> on <em>their</em> data (test, don't trust benchmarks).</li>
+<li><strong>Tool-calling reliability</strong> (critical for agents; see Chapter 3).</li>
+<li><strong>Latency</strong> (time-to-first-token and tokens/s) versus user expectations.</li>
+<li><strong>Cost</strong> per task, not per token.</li>
+<li><strong>Context length</strong> actually needed.</li>
+<li><strong>Data residency, privacy and licence</strong> (can data leave? can weights be self-hosted? commercial use allowed?).</li>
+<li><strong>Operational fit:</strong> managed API vs self-hosted; GPU availability; skills.</li>
+<li><strong>Lock-in risk:</strong> OpenAI-compatible APIs and gateways reduce it.</li>
+</ol>
+<h3 id="architects-lens_1">Architect's lens</h3>
+<ul>
+<li>Multi-model is normal: small model for routing/classification/extraction, larger model for hard reasoning ("model routing").</li>
+<li>Models are a <strong>replaceable component</strong>. Architect for swap-ability (API abstraction, eval suite to re-validate).</li>
+</ul>
+<h3 id="check-yourself_1">Check yourself</h3>
+<ol start="3">
+<li>Give two reasons a customer might choose a small self-hosted model over a frontier API even if quality is lower.</li>
+</ol>
+<hr />
+<h2 id="lesson-13-prompting-structured-output-rag-or-fine-tuning">Lesson 1.3: Prompting, structured output, RAG or fine-tuning?</h2>
+<h3 id="structured-outputs">Structured outputs</h3>
+<p>Free-form text is hard for software to consume. Options, from weakest to strongest guarantee:</p>
+<ol>
+<li><strong>Prompt-only</strong> ("reply in JSON"): often works, sometimes wraps in code fences or adds prose. Fragile.</li>
+<li><strong>JSON mode:</strong> output is valid JSON, but not necessarily <em>your</em> schema.</li>
+<li><strong>Schema-constrained output</strong> (<code>response_format</code> with JSON Schema, or constrained decoding in servers like vLLM): output is guaranteed to match the schema (syntax and types), though the <em>content</em> can still be wrong.</li>
+</ol>
+<p>You'll measure the difference in Lab 1.</p>
+<h3 id="which-technique-for-which-problem">Which technique for which problem?</h3>
+<table>
+<thead>
+<tr>
+<th>Need</th>
+<th>First choice</th>
+<th>Why</th>
+<th>Watch out</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Change tone, format, task behavior</td>
+<td><strong>Prompt engineering</strong> (+ few-shot examples)</td>
+<td>Cheapest, instant, reversible</td>
+<td>Prompt bloat, brittle to model changes</td>
+</tr>
+<tr>
+<td>Answer from private or changing knowledge</td>
+<td><strong>RAG</strong></td>
+<td>Fresh data, citations, access control at retrieval time</td>
+<td>Retrieval quality is the bottleneck</td>
+</tr>
+<tr>
+<td>Take actions / get live data</td>
+<td><strong>Tools (function calling, MCP)</strong></td>
+<td>Real-time, auditable</td>
+<td>Security and reliability (Ch 3, 10)</td>
+</tr>
+<tr>
+<td>Consistent style/format at scale, cheaper smaller model, domain vocabulary</td>
+<td><strong>Fine-tuning</strong> (LoRA, or InstructLab-style skill/knowledge tuning)</td>
+<td>Behavior baked in, shorter prompts</td>
+<td>Needs data, evals, retraining; poor for frequently changing facts</td>
+</tr>
+<tr>
+<td>Fundamentally new capability</td>
+<td>Different/larger model</td>
+<td></td>
+<td>Cost</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Rule of thumb:</strong> <em>prompt → RAG/tools → fine-tune</em>. Fine-tuning teaches <strong>behavior</strong>; RAG supplies <strong>knowledge</strong>. Most enterprise "our model must know our data" requests are RAG problems.</p>
+<h3 id="architects-lens_2">Architect's lens</h3>
+<ul>
+<li>Ask "does the knowledge change?" (yes → RAG) and "is it a behavior/format problem?" (yes → prompt/fine-tune).</li>
+<li>Combining is normal: RAG + tools + a lightly tuned small model.</li>
+</ul>
+<h3 id="check-yourself_2">Check yourself</h3>
+<ol start="4">
+<li>A customer wants the assistant to always answer in their brand voice and to know today's product prices. Which techniques do you propose for each need?</li>
+</ol>
+<hr />
+<h2 id="lesson-14-economics-tokens-caching-and-why-agents-multiply-cost">Lesson 1.4: Economics: tokens, caching, and why agents multiply cost</h2>
+<h3 id="pricing-model">Pricing model</h3>
+<ul>
+<li>Billed per <strong>input</strong> and <strong>output</strong> token, usually per million. Output tokens cost several times more than input.</li>
+<li><strong>Prompt (prefix) caching:</strong> repeated identical prefixes (system prompt, tool definitions, documents) can be billed at a discount and processed faster. Provider-specific rules apply; structure prompts with stable content first.</li>
+<li><strong>Batch APIs:</strong> asynchronous processing at a discount for non-urgent work.</li>
+<li><strong>Reasoning/thinking tokens</strong> count as output on most providers.</li>
+<li><strong>Self-hosted:</strong> you pay for GPUs and ops rather than tokens. Cost per token falls with utilization (Chapter 13).</li>
+</ul>
+<h3 id="why-agents-multiply-cost">Why agents multiply cost</h3>
+<p>An agent calls the model in a loop, and <strong>each call re-sends the whole growing context</strong> (system prompt + tools + history + tool results).</p>
+<p><strong>Worked example.</strong> System prompt + tool definitions = 2,000 tokens. Each step adds ~1,000 tokens (model output + tool result). Ten steps:</p>
+<table>
+<thead>
+<tr>
+<th>Step</th>
+<th>Input tokens sent</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>2,000</td>
+</tr>
+<tr>
+<td>2</td>
+<td>3,000</td>
+</tr>
+<tr>
+<td>…</td>
+<td>…</td>
+</tr>
+<tr>
+<td>10</td>
+<td>11,000</td>
+</tr>
+<tr>
+<td><strong>Total input billed</strong></td>
+<td><strong>65,000</strong></td>
+</tr>
+</tbody>
+</table>
+<p>The final context is only 11k tokens, yet you paid for ~65k of input, <strong>~6× more</strong>, and that's before output and reasoning tokens. Add 3 retries or a multi-agent setup and it multiplies again.</p>
+<p><strong>Levers:</strong> prompt caching, shorter tool outputs, context compaction/summarization, fewer/better tools, smaller models for easy steps, step limits, budget caps per run.</p>
+<h3 id="architects-lens_3">Architect's lens</h3>
+<ul>
+<li>Quote costs <strong>per completed task</strong>, not per token, and include the loop multiplier.</li>
+<li>Set <strong>budgets and step limits</strong> in every agent design (Chapter 2).</li>
+<li>"Free" local models cost hardware, electricity and ops. Compare honestly (TCO in Chapter 13).</li>
+</ul>
+<h3 id="check-yourself_3">Check yourself</h3>
+<ol start="5">
+<li>An agent averages 8 steps, starting context 3k tokens, +1.5k per step. Approximate total input tokens? (Answer at the end.)</li>
+</ol>
+<hr />
+<h2 id="lab-1-compare-a-local-and-a-hosted-model">Lab 1: Compare a local and a hosted model</h2>
+<p><strong>Time:</strong> 2–3 h · <strong>Cost:</strong> $0 with a free tier; &lt; $0.20 with a cheap paid model
+<strong>Goal:</strong> get hard numbers on latency, throughput, tokens, cost and structured-output reliability, using <strong>one client and one code path</strong> for both models.</p>
+<h3 id="step-1-project-setup">Step 1: Project setup</h3>
+<pre><code class="language-bash">cd ~/agentic-labs/lab01
+uv init --bare .                       # creates pyproject.toml (older uv: `uv init`)
+uv add openai pydantic python-dotenv
+</code></pre>
+<h3 id="step-2-configuration">Step 2: Configuration</h3>
+<p>Copy <code>.env.example</code> (provided next to this chapter) to <code>.env</code> and fill it in.</p>
+<ul>
+<li><code>LOCAL_*</code> → your Ollama model.</li>
+<li>
+<p><code>HOSTED_*</code> → <strong>OpenRouter is recommended</strong> (one key, many models, pay-per-token, no GPU needed). Use the helper to pick a cheap model and get its prices:
+  <code>bash
+  bash ../lab-env/labenv.sh models --tools --structured --limit 15   # cheapest first
+  bash ../lab-env/labenv.sh price &lt;model-id&gt;                          # prints HOSTED_MODEL / HOSTED_PRICE_IN / HOSTED_PRICE_OUT</code>
+  Any other OpenAI-compatible provider works too (list in the file). Set a small credit limit on the key in the provider dashboard.</p>
+</li>
+<li>
+<p>For your report, also try one <code>:free</code> model and one cheap paid model and compare reliability. Free models are rate-limited and may log prompts; use only the synthetic prompts in this lab.</p>
+</li>
+<li>Leave <code>HOSTED_BASE_URL</code> empty to run local only.</li>
+</ul>
+<h3 id="step-3-the-script">Step 3: The script</h3>
+<p>Save as <code>compare.py</code>. It streams every response, so it can measure <strong>time-to-first-token (TTFT)</strong> separately from <strong>decode speed</strong>, then tests structured output two ways.</p>
+<pre><code class="language-python">&quot;&quot;&quot;Lab 1: compare a local and a hosted model through ONE OpenAI-compatible client.
+
+Measures per model: time-to-first-token, total latency, decode speed (tokens/s),
+token counts, and cost. Then tests structured-output reliability
+(prompt-only JSON vs. JSON-schema-constrained output).
+
+Usage:  uv run compare.py
+Config: see .env.example
+&quot;&quot;&quot;
+import csv
+import os
+import statistics
+import time
+from typing import Literal
+
+from dotenv import load_dotenv
+from openai import OpenAI
+from pydantic import BaseModel, ConfigDict, ValidationError
+
+load_dotenv()
+
+TEMP = os.environ.get(&quot;TEMPERATURE&quot;, &quot;0&quot;)  # set to &quot;&quot; to omit (some reasoning models reject it)
+
+
+def load_profile(prefix: str):
+    &quot;&quot;&quot;Build a model profile from env vars, or None if not configured.&quot;&quot;&quot;
+    base_url = os.environ.get(f&quot;{prefix}_BASE_URL&quot;)
+    if not base_url:
+        return None
+    return {
+        &quot;name&quot;: prefix.lower(),
+        &quot;base_url&quot;: base_url,
+        &quot;api_key&quot;: os.environ.get(f&quot;{prefix}_API_KEY&quot;, &quot;not-needed&quot;),
+        &quot;model&quot;: os.environ[f&quot;{prefix}_MODEL&quot;],
+        &quot;price_in&quot;: float(os.environ.get(f&quot;{prefix}_PRICE_IN&quot;, &quot;0&quot;)),    # USD per 1M input tokens
+        &quot;price_out&quot;: float(os.environ.get(f&quot;{prefix}_PRICE_OUT&quot;, &quot;0&quot;)),  # USD per 1M output tokens
+    }
+
+
+PROFILES = [p for p in (load_profile(&quot;LOCAL&quot;), load_profile(&quot;HOSTED&quot;)) if p]
+
+PROMPTS = [
+    &quot;In two sentences, explain what a context window is.&quot;,
+    &quot;What is 17% of 2,340? Show the calculation briefly.&quot;,
+    &quot;Summarize the difference between TCP and UDP in three bullet points.&quot;,
+    &quot;Write a Python function that returns the n-th Fibonacci number iteratively.&quot;,
+    &quot;List three risks of giving an LLM direct write access to a production database.&quot;,
+    &quot;Translate to Italian: 'The deployment failed because the certificate expired.'&quot;,
+    &quot;A train leaves at 09:40 and arrives at 13:15. How long is the journey?&quot;,
+    &quot;Explain Kubernetes namespaces to a finance manager in under 60 words.&quot;,
+    &quot;Give one advantage and one disadvantage of RAG compared to fine-tuning.&quot;,
+    &quot;Rewrite politely: 'Your report is late again and it is full of mistakes.'&quot;,
+]
+
+
+def timed_chat(client, model, messages, **extra):
+    &quot;&quot;&quot;Streaming chat call. Returns text, ttft, latency, and token usage.&quot;&quot;&quot;
+    kwargs = dict(model=model, messages=messages, stream=True, **extra)
+    if TEMP != &quot;&quot;:
+        kwargs[&quot;temperature&quot;] = float(TEMP)
+
+    def run(with_usage: bool):
+        k = dict(kwargs)
+        if with_usage:
+            k[&quot;stream_options&quot;] = {&quot;include_usage&quot;: True}
+        start = time.perf_counter()
+        first, parts, usage = None, [], None
+        for chunk in client.chat.completions.create(**k):
+            if getattr(chunk, &quot;usage&quot;, None):
+                usage = chunk.usage
+            if chunk.choices and chunk.choices[0].delta.content:
+                if first is None:
+                    first = time.perf_counter()
+                parts.append(chunk.choices[0].delta.content)
+        end = time.perf_counter()
+        return &quot;&quot;.join(parts), start, first, end, usage
+
+    try:
+        text, start, first, end, usage = run(with_usage=True)
+    except Exception:  # some servers reject stream_options; retry without
+        text, start, first, end, usage = run(with_usage=False)
+
+    prompt_chars = sum(len(m[&quot;content&quot;]) for m in messages)
+    return {
+        &quot;text&quot;: text,
+        &quot;ttft&quot;: (first or end) - start,
+        &quot;latency&quot;: end - start,
+        &quot;in_tok&quot;: usage.prompt_tokens if usage else max(1, prompt_chars // 4),
+        &quot;out_tok&quot;: usage.completion_tokens if usage else max(1, len(text) // 4),
+        &quot;usage_reported&quot;: usage is not None,
+    }
+
+
+# ---------- Part A: latency / throughput / cost ----------
+def benchmark(profile, client):
+    rows = []
+    for i, prompt in enumerate(PROMPTS):
+        r = timed_chat(client, profile[&quot;model&quot;], [{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: prompt}])
+        decode_time = max(r[&quot;latency&quot;] - r[&quot;ttft&quot;], 1e-6)
+        cost = (r[&quot;in_tok&quot;] * profile[&quot;price_in&quot;] + r[&quot;out_tok&quot;] * profile[&quot;price_out&quot;]) / 1e6
+        rows.append({
+            &quot;profile&quot;: profile[&quot;name&quot;], &quot;prompt&quot;: i, &quot;ttft_s&quot;: round(r[&quot;ttft&quot;], 3),
+            &quot;latency_s&quot;: round(r[&quot;latency&quot;], 3), &quot;in_tok&quot;: r[&quot;in_tok&quot;], &quot;out_tok&quot;: r[&quot;out_tok&quot;],
+            &quot;tok_per_s&quot;: round(r[&quot;out_tok&quot;] / decode_time, 1), &quot;cost_usd&quot;: cost,
+            &quot;usage_reported&quot;: r[&quot;usage_reported&quot;],
+        })
+        print(f&quot;  [{profile['name']}] prompt {i}: {r['latency']:.2f}s, {r['out_tok']} out tokens&quot;)
+    return rows
+
+
+# ---------- Part B: structured output reliability ----------
+class Ticket(BaseModel):
+    model_config = ConfigDict(extra=&quot;forbid&quot;)  # -&gt; additionalProperties:false (needed by strict mode)
+    category: Literal[&quot;billing&quot;, &quot;technical&quot;, &quot;account&quot;, &quot;other&quot;]
+    priority: Literal[&quot;low&quot;, &quot;medium&quot;, &quot;high&quot;]
+    summary: str
+
+
+TICKETS = [
+    &quot;I was charged twice for my subscription this month, please fix ASAP!&quot;,
+    &quot;The VPN drops every 10 minutes since the last update. Very annoying.&quot;,
+    &quot;I can't reset my password, the email never arrives.&quot;,
+    &quot;Do you have a dark mode planned for the mobile app? Just curious.&quot;,
+    &quot;Production API is returning 500 errors for all customers right now!!&quot;,
+]
+SYSTEM_JSON = (
+    &quot;You triage support tickets. Reply with ONLY a JSON object with keys &quot;
+    &quot;category (billing|technical|account|other), priority (low|medium|high), summary (string).&quot;
+)
+
+
+def structured_test(profile, client, n=10):
+    results = {}
+    for mode in (&quot;prompt_only&quot;, &quot;json_schema&quot;):
+        ok = 0
+        for i in range(n):
+            msgs = [{&quot;role&quot;: &quot;system&quot;, &quot;content&quot;: SYSTEM_JSON},
+                    {&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: TICKETS[i % len(TICKETS)]}]
+            extra = {}
+            if mode == &quot;json_schema&quot;:
+                extra[&quot;response_format&quot;] = {
+                    &quot;type&quot;: &quot;json_schema&quot;,
+                    &quot;json_schema&quot;: {&quot;name&quot;: &quot;ticket&quot;, &quot;schema&quot;: Ticket.model_json_schema(), &quot;strict&quot;: True},
+                }
+            try:
+                r = timed_chat(client, profile[&quot;model&quot;], msgs, **extra)
+                Ticket.model_validate_json(r[&quot;text&quot;])  # strict: raw text must be valid JSON
+                ok += 1
+            except (ValidationError, ValueError):
+                pass
+            except Exception as e:  # e.g. provider doesn't support json_schema
+                print(f&quot;  [{profile['name']}] {mode} error: {type(e).__name__}: {str(e)[:120]}&quot;)
+                break
+        results[mode] = f&quot;{ok}/{n}&quot;
+    return results
+
+
+def summarize(rows):
+    def med(key):
+        return statistics.median(r[key] for r in rows)
+    return {
+        &quot;median_ttft_s&quot;: round(med(&quot;ttft_s&quot;), 2),
+        &quot;median_latency_s&quot;: round(med(&quot;latency_s&quot;), 2),
+        &quot;median_tok_per_s&quot;: round(med(&quot;tok_per_s&quot;), 1),
+        &quot;avg_out_tok&quot;: round(statistics.mean(r[&quot;out_tok&quot;] for r in rows), 0),
+        &quot;cost_per_1k_req_usd&quot;: round(sum(r[&quot;cost_usd&quot;] for r in rows) / len(rows) * 1000, 2),
+    }
+
+
+def main():
+    if not PROFILES:
+        raise SystemExit(&quot;No profiles configured. Copy .env.example to .env and fill it in.&quot;)
+    all_rows, report = [], {}
+    for p in PROFILES:
+        print(f&quot;\n== {p['name']} ({p['model']} @ {p['base_url']})&quot;)
+        client = OpenAI(base_url=p[&quot;base_url&quot;], api_key=p[&quot;api_key&quot;], timeout=180)
+        rows = benchmark(p, client)
+        all_rows += rows
+        report[p[&quot;name&quot;]] = {**summarize(rows), **{f&quot;struct_{k}&quot;: v for k, v in structured_test(p, client).items()}}
+
+    with open(&quot;results.csv&quot;, &quot;w&quot;, newline=&quot;&quot;) as f:
+        w = csv.DictWriter(f, fieldnames=list(all_rows[0].keys()))
+        w.writeheader()
+        w.writerows(all_rows)
+
+    metrics = list(next(iter(report.values())).keys())
+    print(&quot;\n| metric | &quot; + &quot; | &quot;.join(report) + &quot; |&quot;)
+    print(&quot;|---|&quot; + &quot;---|&quot; * len(report))
+    for m in metrics:
+        print(f&quot;| {m} | &quot; + &quot; | &quot;.join(str(report[k][m]) for k in report) + &quot; |&quot;)
+    print(&quot;\nRaw data saved to results.csv&quot;)
+
+
+if __name__ == &quot;__main__&quot;:
+    main()
+</code></pre>
+<blockquote>
+<p><strong>Validation status:</strong> the script's logic (streaming, metrics, cost math, schema validation) was tested end-to-end against a mock OpenAI-compatible server. I couldn't test it against your specific local model or provider, so if you hit an error, paste it to me. Providers differ in support for <code>stream_options</code> and <code>json_schema</code>; the script falls back or reports these cases.</p>
+</blockquote>
+<h3 id="step-4-run">Step 4: Run</h3>
+<pre><code class="language-bash">uv run compare.py
+</code></pre>
+<p>Expect ~10–20 min on a CPU-only local model. Output: a Markdown table on screen and <code>results.csv</code>.</p>
+<h3 id="step-5-interpret-write-your-answers-down">Step 5: Interpret (write your answers down)</h3>
+<ol>
+<li><strong>TTFT vs decode speed:</strong> which model is faster to <em>start</em>, which to <em>finish</em>? Why (prompt processing vs generation; network vs local hardware)?</li>
+<li><strong>Token counts:</strong> did the two models use very different numbers of output tokens for the same prompts? If a model shows visible "thinking", how much of the output is that?</li>
+<li><strong>Cost:</strong> compute <em>cost per 1,000 requests</em> for the hosted model at its paid rate. What would the local model cost in hardware/electricity terms? (Rough estimate is fine.)</li>
+<li><strong>Structured output:</strong> what were the <code>prompt_only</code> vs <code>json_schema</code> success rates? If <code>prompt_only</code> failed, look at the raw text: code fences? extra prose? Modify the script to print one failing output.</li>
+<li><strong>Quality:</strong> read 3 answers from each model. Where is the small model clearly worse?</li>
+</ol>
+<h3 id="step-6-experiments-pick-two">Step 6: Experiments (pick two)</h3>
+<ul>
+<li><strong>A. Temperature:</strong> run with <code>TEMPERATURE=0</code> and <code>TEMPERATURE=1.0</code>. Compare the answers to the same prompt across 3 runs. How much do they vary at 0?</li>
+<li><strong>B. Thinking on/off:</strong> with a Qwen3 model, append <code>/no_think</code> to the prompts (Qwen3 supports this soft switch) and compare tokens, latency and answer quality.</li>
+<li><strong>C. Prompt length:</strong> pad a prompt to ~500, 2,000 and 6,000 tokens of filler text. Plot TTFT vs input length for both models. (Sets up the intuition for Lesson 1.4.)</li>
+<li><strong>D. Model size:</strong> add a second local model (e.g. 3B vs 8B) as a third profile and see the quality/speed trade-off.</li>
+</ul>
+<h3 id="deliverable-bring-this-back-to-the-chat">Deliverable: bring this back to the chat</h3>
+<ol>
+<li>Your results table (paste the Markdown table).</li>
+<li>Answers to the five interpretation questions (2–3 sentences each).</li>
+<li>Results of two experiments.</li>
+<li>One sentence: <em>"If a customer asked me which of these two models to use for [invented use case], I'd say ___ because ___."</em></li>
+</ol>
+<p>I'll review your findings, correct misconceptions and give feedback before we move to Chapter 2.</p>
+<h3 id="troubleshooting">Troubleshooting</h3>
+<table>
+<thead>
+<tr>
+<th>Symptom</th>
+<th>Fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>KeyError: LOCAL_MODEL</code></td>
+<td><code>.env</code> missing or not in the <code>lab01</code> folder</td>
+</tr>
+<tr>
+<td>Connection refused</td>
+<td>Ollama not running (<code>ollama serve</code>)</td>
+</tr>
+<tr>
+<td>Local run very slow</td>
+<td>Smaller model; reduce <code>PROMPTS</code> to 5 for a first pass</td>
+</tr>
+<tr>
+<td><code>json_schema</code> error on hosted provider</td>
+<td>Provider doesn't support it: note this in your report (that itself is a finding); try another provider or model</td>
+</tr>
+<tr>
+<td><code>temperature</code> rejected (400)</td>
+<td>Set <code>TEMPERATURE=</code> (empty) in <code>.env</code></td>
+</tr>
+<tr>
+<td>429 rate limit</td>
+<td>Free tier throttling; add <code>time.sleep(2)</code> between calls</td>
+</tr>
+<tr>
+<td>Token counts are estimates</td>
+<td><code>usage_reported</code> is <code>False</code> in the CSV; provider doesn't return streaming usage</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="chapter-1-self-check-quiz">Chapter 1 self-check quiz</h2>
+<p>Answer first, then compare with the key.</p>
+<ol>
+<li>Why can't you rely on <code>temperature=0</code> for exactly reproducible output?</li>
+<li>A customer says "the model knows our policies, we trained it last year." What questions do you ask?</li>
+<li>Give two reasons a customer might choose a small self-hosted model over a frontier API even if quality is lower.</li>
+<li>A customer wants the assistant to always answer in their brand voice and to know today's product prices. Which techniques do you propose for each need?</li>
+<li>An agent averages 8 steps, starting context 3k tokens, +1.5k per step. Approximate total input tokens?</li>
+</ol>
+<details>
+<summary><strong>Answer key</strong></summary>
+
+1. Infrastructure factors (batching, floating-point non-associativity, hardware/kernel differences, provider-side model updates) can change results even with greedy decoding. Design for tolerance and test statistically.
+2. What data was used and how (fine-tuning vs retrieval)? Has policy changed since? Are answers cited/traceable? Who can see which policy (access control)? How do updates reach the model? This usually reveals a RAG need.
+3. Data residency/privacy (data can't leave), cost predictability at high volume, latency/offline/edge use, licence and control over model versions, air-gapped environments.
+4. Brand voice → prompt engineering (system prompt + examples), possibly light fine-tuning at scale. Live prices → tool/API call (function calling or an MCP server), not RAG over stale documents.
+5. Contexts sent: 3k, 4.5k, 6k, 7.5k, 9k, 10.5k, 12k, 13.5k → sum = 66,000 tokens (vs 13.5k final context), about 5× the final context size.
+
+</details>
+
+<hr />
+<h2 id="further-reading-free">Further reading (free)</h2>
+<ul>
+<li>Andrej Karpathy, <em>Intro to Large Language Models</em> (video, ~1 h).</li>
+<li>Your chosen provider's docs on <strong>structured outputs</strong> and <strong>prompt caching</strong>.</li>
+<li>Hugging Face LLM Course, tokenization chapter (optional).</li>
+<li>Ollama docs: OpenAI compatibility and model library.</li>
+</ul>
+<p><strong>Next:</strong> Chapter 2, <em>From LLM to agent</em>, where you'll write an agent loop from scratch in ~100 lines. When you're ready, paste your Lab 1 deliverable and say "review Lab 1".</p>
+</body>
+</html>
