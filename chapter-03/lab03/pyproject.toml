@@ -1,0 +1,6 @@
+[project]
+name = "lab03"
+version = "0.1.0"
+description = "Lab 3: tool use and function calling"
+requires-python = ">=3.11"
+dependencies = ["openai", "python-dotenv"]
