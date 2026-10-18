@@ -1,4 +1,6 @@
 .env
+.env.gpt-oss-20b
+.env.mistral-nemo
 logs/
 results-*.csv
 .venv/
